@@ -59,6 +59,10 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define X_axix_servo_Pin GPIO_PIN_12
+#define X_axix_servo_GPIO_Port GPIOD
+#define Y_axis_servo_Pin GPIO_PIN_14
+#define Y_axis_servo_GPIO_Port GPIOD
 
 /* USER CODE BEGIN Private defines */
 

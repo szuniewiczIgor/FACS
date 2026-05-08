@@ -22,6 +22,10 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "servo.h"
+#include "sensor.h"
+#include "tilt.h"
+#include <stdio.h>
+#include <math.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,7 +44,11 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+I2C_HandleTypeDef hi2c1;
+
 TIM_HandleTypeDef htim4;
+
+UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
@@ -50,6 +58,8 @@ TIM_HandleTypeDef htim4;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_USART2_UART_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -89,30 +99,79 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM4_Init();
+  MX_USART2_UART_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1); // PWM signal enable on pin PD12
+  HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3); // PWM signal enable on pin PD14
+
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_4, GPIO_PIN_RESET); // Keep reset audio peripherals on I2C1 line
+  HAL_Delay(100);
+
+  if(SensorInit() != 0) {
+        printf("Accelerometer Init Error\r\n");
+        HAL_GPIO_TogglePin (GPIOC, GPIO_PIN_15);
+        HAL_Delay(1000);
+        HAL_GPIO_TogglePin (GPIOC, GPIO_PIN_15);
+        Error_Handler();
+    } else {
+        printf("Accelerometer Init Done\r\n");
+        HAL_GPIO_TogglePin (GPIOC, GPIO_PIN_15);
+        HAL_Delay(200);
+        HAL_GPIO_TogglePin (GPIOC, GPIO_PIN_15);
+        HAL_Delay(200);
+        HAL_GPIO_TogglePin (GPIOC, GPIO_PIN_15);
+    }
+  HAL_Delay(50);
 
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  int16_t ax, ay, az;
+
   while (1)
   {
-	  SetServoAngle(0);
+	  if (SensorReadAccel(&ax, &ay, &az) == 0){
+		  uint8_t servo_pos_x = TiltCalculateServoX(ax, ay, az);
+		  SetServoAngle(AXIS_X, servo_pos_x);
+		  uint8_t servo_pos_y = TiltCalculateServoY(ax, ay, az);
+		  SetServoAngle(AXIS_Y, servo_pos_y);
+
+		  printf("ACC X: %6d Y: %6d / Servo X: %3d / Servo Y: %3d  \r\n", ax, ay, servo_pos_x, servo_pos_y);
+	  }
+	  else {
+		  printf("Communication with Accelerometer lost \r\n");
+	  }
+	  HAL_Delay(20);
+
+	  /*SetServoAngle(AXIS_X, 0);
+	  SetServoAngle(AXIS_Y, 0);
+	  printf("Ustawiono kat: 0 stopni\r\n");
+
 	  HAL_Delay(3000);
 
-	  SetServoAngle(45);
+	  SetServoAngle(AXIS_X, 45);
+	  SetServoAngle(AXIS_Y, 45);
+	  printf("Ustawiono kat: 45 stopni\r\n");
 	  HAL_Delay(3000);
 
-	  SetServoAngle(90);
+	  SetServoAngle(AXIS_X, 90);
+	  SetServoAngle(AXIS_Y, 90);
+	  printf("Ustawiono kat: 90 stopni\r\n");
 	  HAL_Delay(3000);
 
-	  SetServoAngle(135);
+	  SetServoAngle(AXIS_X, 135);
+	  SetServoAngle(AXIS_Y, 135);
+	  printf("Ustawiono kat: 135 stopni\r\n");
 	  HAL_Delay(3000);
 
-	  SetServoAngle(180);
-	  HAL_Delay(3000);
+	  SetServoAngle(AXIS_X, 185);
+	  SetServoAngle(AXIS_Y, 185);
+	  printf("Ustawiono kat: 180 stopni\r\n");
+	  HAL_Delay(3000); */
+
 	  /*__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 575); //0.575 ms impulse -> 0 degree
 	  HAL_Delay(3000);
 	  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 1575); //set 1.575 ms impulse -> 90 degree
@@ -169,6 +228,40 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
   * @brief TIM4 Initialization Function
   * @param None
   * @retval None
@@ -220,10 +313,47 @@ static void MX_TIM4_Init(void)
   {
     Error_Handler();
   }
+  if (HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
   /* USER CODE BEGIN TIM4_Init 2 */
 
   /* USER CODE END TIM4_Init 2 */
   HAL_TIM_MspPostInit(&htim4);
+
+}
+
+/**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
 
 }
 
@@ -234,12 +364,36 @@ static void MX_TIM4_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
   /* USER CODE BEGIN MX_GPIO_Init_1 */
 
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_4, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : PC15 */
+  GPIO_InitStruct.Pin = GPIO_PIN_15;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PD4 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
@@ -248,7 +402,10 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-
+int _write(int file, char *ptr, int len){
+	HAL_UART_Transmit(&huart2, (uint8_t*)ptr, len, HAL_MAX_DELAY);
+	return len;
+}
 /* USER CODE END 4 */
 
 /**

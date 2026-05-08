@@ -7,7 +7,7 @@
 #include "servo.h"
 extern TIM_HandleTypeDef htim4; //allows use htim4
 
-void SetServoAngle(uint8_t angle){
+void SetServoAngle(uint32_t axis, uint8_t angle){
 	if (angle > 180){
 		angle = 180;
 	}
@@ -16,5 +16,5 @@ void SetServoAngle(uint8_t angle){
 
 	uint16_t pulse = ((uint32_t)angle * (max_pulse - min_pulse) / 180) + min_pulse; //formula for pulse. angle is variable
 
-	__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, pulse);
+	__HAL_TIM_SET_COMPARE(&htim4, axis, pulse);
 }
