@@ -18,7 +18,7 @@ uint8_t TiltCalculateServoX(float ax, float ay, float az){
 	// Filtering noise by low pass filter
 	filtered_x_angle = (alpha * raw_x_angle) + ((1.0f - alpha) * filtered_x_angle);
 	// Rescaling tilt degree to servo degree
-	float servo_x_angle = filtered_x_angle + 90.0f;
+	float servo_x_angle = 90.0f - filtered_x_angle;
 
 	// Servo overshoot protection
 	if (servo_x_angle < 0.0f) {
@@ -35,7 +35,7 @@ uint8_t TiltCalculateServoX(float ax, float ay, float az){
 uint8_t TiltCalculateServoY(float ax, float ay, float az){
 	float raw_y_angle = atan2(ay, sqrt((ax*ax + az*az))) * 180.0f / M_PI;
 	filtered_y_angle = (alpha * raw_y_angle) + ((1.0f - alpha) * filtered_y_angle);
-	float servo_y_angle = filtered_y_angle + 90.0f;
+	float servo_y_angle = 90.0f - filtered_y_angle;
 	if (servo_y_angle < 0.0f) {
 			servo_y_angle = 0.0f;
 		}
