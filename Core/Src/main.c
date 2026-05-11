@@ -118,6 +118,7 @@ int main(void)
   SystemState_t currentState = STATE_INIT;
   float offset_pitch = 0.0f;
   float offset_roll = 0.0f;
+
   int16_t ax, ay, az;
 
   /* USER CODE END 2 */
@@ -137,7 +138,7 @@ int main(void)
 		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);
 		 HAL_Delay(250);
 		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_RESET);
-		 HAL_Delay(250);
+		 HAL_Delay(200);
 
 		 if (SensorInit() == 0){
 			 currentState = STATE_CALIBRATE;
