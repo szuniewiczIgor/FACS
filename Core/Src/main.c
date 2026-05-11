@@ -66,7 +66,12 @@ static void MX_I2C1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+typedef enum {
+	STATE_INIT,
+	STATE_CALIBRATE,
+	STATE_RUN,
+	STATE_ERROR
+} SystemState_t;
 /* USER CODE END 0 */
 
 /**
@@ -101,83 +106,115 @@ int main(void)
   MX_TIM4_Init();
   MX_USART2_UART_Init();
   MX_I2C1_Init();
+
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1); // PWM signal enable on pin PD12
   HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_3); // PWM signal enable on pin PD14
 
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_4, GPIO_PIN_RESET); // Keep reset audio peripherals on I2C1 line
   HAL_Delay(100);
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_RESET);
 
-  if(SensorInit() != 0) {
-        printf("Accelerometer Init Error\r\n");
-        HAL_GPIO_TogglePin (GPIOC, GPIO_PIN_15);
-        HAL_Delay(1000);
-        HAL_GPIO_TogglePin (GPIOC, GPIO_PIN_15);
-        Error_Handler();
-    } else {
-        printf("Accelerometer Init Done\r\n");
-        HAL_GPIO_TogglePin (GPIOC, GPIO_PIN_15);
-        HAL_Delay(200);
-        HAL_GPIO_TogglePin (GPIOC, GPIO_PIN_15);
-        HAL_Delay(200);
-        HAL_GPIO_TogglePin (GPIOC, GPIO_PIN_15);
-    }
-  HAL_Delay(50);
-
+  SystemState_t currentState = STATE_INIT;
+  float offset_pitch = 0.0f;
+  float offset_roll = 0.0f;
+  int16_t ax, ay, az;
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  int16_t ax, ay, az;
 
   while (1)
   {
-	  if (SensorReadAccel(&ax, &ay, &az) == 0){
-		  uint8_t servo_pos_x = TiltCalculateServoX(ax, ay, az);
-		  SetServoAngle(AXIS_X, servo_pos_x);
-		  uint8_t servo_pos_y = TiltCalculateServoY(ax, ay, az);
-		  SetServoAngle(AXIS_Y, servo_pos_y);
+	 switch (currentState){
+	 case STATE_INIT:
 
-		  printf("ACC X: %6d Y: %6d / Servo X: %3d / Servo Y: %3d  \r\n", ax, ay, servo_pos_x, servo_pos_y);
-	  }
-	  else {
-		  printf("Communication with Accelerometer lost \r\n");
-	  }
-	  HAL_Delay(20);
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);
+		 HAL_Delay(250);
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_RESET);
+		 HAL_Delay(250);
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);
+		 HAL_Delay(250);
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_RESET);
+		 HAL_Delay(250);
 
-	  /*SetServoAngle(AXIS_X, 0);
-	  SetServoAngle(AXIS_Y, 0);
-	  printf("Ustawiono kat: 0 stopni\r\n");
+		 if (SensorInit() == 0){
+			 currentState = STATE_CALIBRATE;
+		 } else {
+			 currentState = STATE_ERROR;
+		 }
+		 HAL_Delay(50);
+		 break;
 
-	  HAL_Delay(3000);
+	 case STATE_CALIBRATE:
+		 HAL_Delay(2000);
 
-	  SetServoAngle(AXIS_X, 45);
-	  SetServoAngle(AXIS_Y, 45);
-	  printf("Ustawiono kat: 45 stopni\r\n");
-	  HAL_Delay(3000);
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);
+		 HAL_Delay(250);
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_RESET);
+		 HAL_Delay(250);
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);
+		 HAL_Delay(250);
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_RESET);
+		 HAL_Delay(250);
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);
+		 HAL_Delay(250);
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_RESET);
+		 HAL_Delay(250);
 
-	  SetServoAngle(AXIS_X, 90);
-	  SetServoAngle(AXIS_Y, 90);
-	  printf("Ustawiono kat: 90 stopni\r\n");
-	  HAL_Delay(3000);
+		 SetServoAngle(AXIS_X, 90.0f);
+		 SetServoAngle(AXIS_Y, 90.0f);
+		 HAL_Delay(2000);
 
-	  SetServoAngle(AXIS_X, 135);
-	  SetServoAngle(AXIS_Y, 135);
-	  printf("Ustawiono kat: 135 stopni\r\n");
-	  HAL_Delay(3000);
+		 float sum_x = 0, sum_y = 0;
+		 int samples = 50;
 
-	  SetServoAngle(AXIS_X, 185);
-	  SetServoAngle(AXIS_Y, 185);
-	  printf("Ustawiono kat: 180 stopni\r\n");
-	  HAL_Delay(3000); */
+		 for (int i = 0; i < samples; i++){
+			 if (SensorReadAccel(&ax, &ay, &az) == 0){
+				 sum_x += atan2(ax, sqrt(ay*ay + az*az)) * 180.0f / M_PI;
+				 sum_y += atan2(ay, sqrt(ax*ax + az*az)) * 180.0f / M_PI;
+			 }
+			 HAL_Delay(50);
+		 }
+		 offset_pitch = sum_x / samples;
+		 offset_roll = sum_y / samples;
 
-	  /*__HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 575); //0.575 ms impulse -> 0 degree
-	  HAL_Delay(3000);
-	  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 1575); //set 1.575 ms impulse -> 90 degree
-	  HAL_Delay(3000);
-	  __HAL_TIM_SET_COMPARE(&htim4, TIM_CHANNEL_1, 2500); //set 2.5 ms impulse -> 180 degree
-	  HAL_Delay(3000);
+		 currentState = STATE_RUN;
+
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);
+		 HAL_Delay(1500);
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_RESET);
+		 break;
+
+	 case STATE_RUN:
+
+		 if (SensorReadAccel(&ax, &ay, &az) == 0){
+			 uint8_t servo_pos_x = TiltCalculateServoX(ax, ay, az, offset_pitch);
+			 uint8_t servo_pos_y = TiltCalculateServoY(ax, ay, az, offset_roll);
+
+			 SetServoAngle(AXIS_X, servo_pos_x);
+			 SetServoAngle(AXIS_Y, servo_pos_y);
+
+			 HAL_Delay(20);
+		 } else {
+			 currentState = STATE_ERROR;
+		 }
+		 break;
+
+	 case STATE_ERROR:
+
+		 SetServoAngle(AXIS_X, 90.0f);
+		 SetServoAngle(AXIS_Y, 90.0f);
+
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_SET);
+		 HAL_Delay(100);
+		 HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_RESET);
+		 HAL_Delay(100);
+
+		 currentState = STATE_INIT;
+		 break;
+	 }
 
     /* USER CODE END WHILE */
 
@@ -376,17 +413,17 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_15, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(Buzzer_GPIO_Port, Buzzer_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_4, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin : PC15 */
-  GPIO_InitStruct.Pin = GPIO_PIN_15;
+  /*Configure GPIO pin : Buzzer_Pin */
+  GPIO_InitStruct.Pin = Buzzer_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  HAL_GPIO_Init(Buzzer_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PD4 */
   GPIO_InitStruct.Pin = GPIO_PIN_4;

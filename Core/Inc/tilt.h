@@ -11,7 +11,7 @@
 #include "main.h"
 
 // Function of calculating raw data into angle
-uint8_t TiltCalculateServoX(float ax, float ay, float az);
-uint8_t TiltCalculateServoY(float ax, float ay, float az);
+uint8_t TiltCalculateServoX(float ax, float ay, float az, float offset);
+uint8_t TiltCalculateServoY(float ax, float ay, float az, float offset);
 
 #endif /* INC_TILT_H_ */

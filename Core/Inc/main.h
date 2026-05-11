@@ -59,6 +59,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define Buzzer_Pin GPIO_PIN_15
+#define Buzzer_GPIO_Port GPIOC
 #define X_axix_servo_Pin GPIO_PIN_12
 #define X_axix_servo_GPIO_Port GPIOD
 #define Y_axis_servo_Pin GPIO_PIN_14
